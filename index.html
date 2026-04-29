@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NEXUS REAL - SURVEILLANCE MONDIALE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #00f2ff;
+            --primary-glow: rgba(0, 242, 255, 0.5);
+            --danger: #ff3366;
+            --success: #00ff88;
+            --warning: #ffaa44;
+            --space: #aa88ff;
+            --ai: #ff88ff;
+            --card-glass: rgba(8, 18, 28, 0.85);
+            --border-glow: rgba(0, 242, 255, 0.25);
+        }
+        body {
+            font-family: 'Space Grotesk', monospace;
+            background: radial-gradient(ellipse at 20% 30%, #0a0a1a, #000000);
+            color: #e0e0ff;
+            overflow-x: hidden;
+        }
+        body.light {
+            background: radial-gradient(ellipse at 20% 30%, #e0e8ff, #c0c8e0);
+            --card-glass: rgba(240, 248, 255, 0.85);
+            color: #001a3a;
+        }
+        .header {
+            backdrop-filter: blur(20px);
+            background: rgba(5, 10, 20, 0.85);
+            border-bottom: 1px solid var(--border-glow);
+            padding: 0.5rem 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .logo { font-size: 0.7rem; font-weight: 800; background: linear-gradient(135deg, #0ff, #f0f, #ff0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .grid { display: grid; grid-template-columns: 1fr 0.9fr; gap: 0.8rem; padding: 0.8rem; }
+        .card {
+            background: var(--card-glass);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 0.8rem;
+            border: 1px solid var(--border-glow);
+            transition: 0.3s;
+        }
+        .card:hover { transform: translateY(-2px); border-color: var(--primary); box-shadow: 0 0 20px var(--primary-glow); }
+        .card-title { font-size: 0.65rem; font-weight: 700; margin-bottom: 0.6rem; padding-left: 8px; border-left: 3px solid var(--primary); display: flex; justify-content: space-between; }
+        .radar-container { width: 100%; aspect-ratio: 1; max-width: 280px; margin: 0 auto; }
+        .radar-canvas { width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(circle, #001a2a, #000a0a); cursor: crosshair; box-shadow: 0 0 20px var(--primary-glow); }
+        .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; margin: 8px 0; }
+        .stat-card { background: rgba(0,0,0,0.5); border-radius: 12px; padding: 5px; text-align: center; border: 1px solid transparent; cursor: pointer; transition: 0.2s; }
+        .stat-card:hover { border-color: var(--primary); transform: scale(1.02); }
+        .stat-value { font-size: 0.8rem; font-weight: 800; color: var(--primary); }
+        .stat-label { font-size: 0.4rem; text-transform: uppercase; }
+        #map { height: 170px; border-radius: 14px; margin-top: 6px; border: 1px solid var(--border-glow); }
+        .gauge-container { margin: 8px 0; }
+        .gauge-label { font-size: 0.55rem; display: flex; justify-content: space-between; }
+        .gauge-bar { height: 3px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+        .gauge-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00ff88, #ffaa44, #ff3366); border-radius: 3px; transition: width 0.3s; }
+        .logs-container { max-height: 120px; overflow-y: auto; background: #00000055; border-radius: 14px; padding: 6px; font-size: 0.5rem; }
+        .log-entry { border-bottom: 1px solid #0ff2; padding: 3px; animation: fadeIn 0.3s; }
+        .log-entry.success { color: #00ff88; }
+        .log-entry.error { color: #ff3366; }
+        .log-entry.warning { color: #ffaa44; }
+        .log-entry.ai { color: #ff88ff; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+        .top5 { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+        .top-item { background: rgba(0,0,0,0.4); border-radius: 10px; padding: 3px 6px; font-size: 0.55rem; display: flex; justify-content: space-between; cursor: pointer; transition: 0.2s; }
+        .top-item:hover { background: rgba(0,242,255,0.2); transform: translateX(3px); }
+        .top-item.selected { background: rgba(255,136,255,0.3); border-left: 2px solid #ff88ff; }
+        .btn-group { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0; }
+        button {
+            background: linear-gradient(135deg, rgba(10,20,35,0.95), rgba(5,10,20,0.95));
+            border: 1px solid var(--border-glow);
+            color: var(--primary);
+            padding: 0.3rem 0.7rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-size: 0.55rem;
+            transition: 0.2s;
+        }
+        button:hover { box-shadow: 0 0 10px var(--primary-glow); transform: scale(1.02); }
+        
+        .range-selector { display: flex; gap: 4px; margin: 8px 0; flex-wrap: wrap; }
+        .range-btn { padding: 0.2rem 0.5rem; font-size: 0.5rem; background: rgba(0,0,0,0.5); }
+        .range-btn.active { background: var(--primary); color: #000; }
+        
+        .prediction-panel {
+            background: rgba(0,0,0,0.5);
+            border-radius: 12px;
+            padding: 6px;
+            margin: 8px 0;
+            border-left: 3px solid var(--warning);
+        }
+        .prediction-text { font-size: 0.55rem; color: var(--warning); }
+        
+        .assistant-panel {
+            background: linear-gradient(135deg, rgba(255,136,255,0.1), rgba(0,242,255,0.05));
+            border-radius: 14px;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid var(--ai);
+        }
+        .assistant-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .assistant-name { font-size: 0.65rem; font-weight: bold; color: var(--ai); }
+        .assistant-status { font-size: 0.5rem; color: var(--success); }
+        .assistant-message { font-size: 0.6rem; color: #e0e0ff; margin: 5px 0; padding: 5px; background: rgba(0,0,0,0.3); border-radius: 10px; }
+        .assistant-suggestion { font-size: 0.55rem; color: var(--warning); padding: 5px; border-left: 2px solid var(--warning); margin-top: 5px; }
+        .assistant-input { display: flex; gap: 5px; margin-top: 8px; }
+        .assistant-input input {
+            flex: 1;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border-glow);
+            border-radius: 20px;
+            padding: 5px 10px;
+            color: var(--primary);
+            font-size: 0.55rem;
+            font-family: monospace;
+        }
+        @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="logo">🚀 NEXUS REAL | SURVEILLANCE MONDIALE LONGUE PORTÉE</div>
+    <div style="display: flex; gap: 8px;">
+        <div id="timeDisplay">--:--:--</div>
+        <div id="weatherIcon">🌡️ --°C</div>
+        <span id="userNameDisplay"></span>
+        <button id="logoutBtn" style="padding: 0.2rem 0.5rem; border-color: #ff3366;">🔓</button>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="card">
+        <div class="card-title"><span>📡 RADAR LONGUE PORTÉE</span><span id="scanStatus">🟢 ACTIF</span></div>
+        <div class="radar-container"><canvas id="radarCanvas" width="450" height="450"></canvas></div>
+        
+        <div class="range-selector">
+            <button class="range-btn" data-range="100">🌍 100km</button>
+            <button class="range-btn" data-range="200">🛸 200km</button>
+            <button class="range-btn" data-range="350">🚀 350km</button>
+            <button class="range-btn active" data-range="500">🛰️ 500km</button>
+        </div>
+        <div class="slider-container"><input type="range" id="rangeRadius" min="50" max="500" value="500" step="25"><span id="radiusValue">500 km</span></div>
+        
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" id="targetCount">0</div><div class="stat-label">AVIONS</div></div>
+            <div class="stat-card"><div class="stat-value" id="droneCount">0</div><div class="stat-label">DRONES</div></div>
+            <div class="stat-card"><div class="stat-value" id="satelliteCount">0</div><div class="stat-label">SATELLITES</div></div>
+            <div class="stat-card"><div class="stat-value" id="quakeCount">0</div><div class="stat-label">SÉISMES</div></div>
+        </div>
+        
+        <div class="gauge-container">
+            <div class="gauge-label"><span>🌡️ MENACE GLOBALE</span><span id="threatValue">0</span>%</div>
+            <div class="gauge-bar"><div class="gauge-fill" id="threatFill"></div></div>
+        </div>
+        
+        <div class="prediction-panel">
+            <div class="prediction-text">📈 PRÉDICTION LONGUE PORTÉE</div>
+            <div class="prediction-text" id="prediction1h">⏱️ 1h: --</div>
+            <div class="prediction-text" id="prediction2h">⏱️ 2h: --</div>
+            <div class="prediction-text" id="prediction4h">⏱️ 4h: --</div>
+        </div>
+        
+        <div class="btn-group">
+            <button id="gpsBtn">📍 GPS</button>
+            <button id="scanBtn">📡 SCAN</button>
+            <button id="autoBtn">🤖 AUTO</button>
+            <button id="captureBtn">📸 CAPTURE</button>
+            <button id="reportBtn">📄 PDF</button>
+            <button id="clearBtn">🗑️ RESET</button>
+        </div>
+        
+        <div class="assistant-panel">
+            <div class="assistant-header">
+                <span class="assistant-name">🧠 ASSISTANTE NEXUS</span>
+                <span class="assistant-status">● EN LIGNE</span>
+            </div>
+            <div class="assistant-message" id="assistantMessage">✨ Portée étendue à 500km - Prédictions à long terme</div>
+            <div class="assistant-suggestion" id="assistantSuggestion">💡 Activez votre GPS et lancez un scan</div>
+            <div class="assistant-input">
+                <input type="text" id="assistantInput" placeholder="Posez-moi une question...">
+                <button id="askAssistantBtn">ENVOYER</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><span>🗺️ CARTE MONDIALE</span><span>🌍 ZONES D'INFLUENCE</span></div>
+        <div id="map"></div>
+        
+        <div class="card-title"><span>🏆 TOP 5 MENACES PROCHES</span></div>
+        <div id="top5Container" class="top5"></div>
+        
+        <div class="card-title"><span>📊 ANALYSE & TENDANCES</span></div>
+        <canvas id="statsChart" height="80"></canvas>
+        
+        <div class="card-title"><span>📋 LOGS</span></div>
+        <div class="logs-container" id="logs">
+            <div class="log-entry success">✅ NEXUS REAL – Longue portée (500km)</div>
+            <div class="log-entry ai">📈 Prédictions à 1h, 2h, 4h</div>
+        </div>
+        
+        <div class="btn-group">
+            <button id="exportBtn">📎 EXPORT</button>
+            <button id="shareBtn">🔗 PARTAGER</button>
+            <button id="voiceBtn">🎤 VOIX</button>
+            <button id="themeBtn">🌓 THÈME</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    let allTargets = [];
+    let nextId = 1;
+    let selectedTargetId = null;
+    let myLat = null, myLon = null;
+    let detectionRadiusKm = 500;
+    let autoInterval = null;
+    let map = null;
+    let statsChart = null;
+    let selectedSatelliteId = null;
+    let selectedSatelliteCallsign = null;
+    
+    function addLog(msg, type = 'info') {
+        const logsDiv = document.getElementById('logs');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        logsDiv.prepend(entry);
+        if (logsDiv.children.length > 35) logsDiv.removeChild(logsDiv.lastChild);
+    }
+    
+    function speak(message) {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = 'fr-FR';
+        utterance.rate = 0.9;
+        window.speechSynthesis.speak(utterance);
+    }
+    
+    function predictFuturePosition(aircraft, minutes) {
+        if (!aircraft.speed || aircraft.speed < 10 || !aircraft.heading) {
+            return { available: false };
+        }
+        const speedKmh = aircraft.speed * 1.852;
+        const distance = (speedKmh / 60) * minutes;
+        const rad = aircraft.heading * Math.PI / 180;
+        const newLat = aircraft.lat + (distance / 111) * Math.cos(rad);
+        const newLon = aircraft.lon + (distance / 111) * Math.sin(rad);
+        return { lat: newLat, lon: newLon, distance: distance, available: true, speedKmh: Math.round(speedKmh) };
+    }
+    
+    function updateLongTermPredictions() {
+        if (allTargets.length === 0) {
+            document.getElementById('prediction1h').innerHTML = "⏱️ 1h: Aucune cible";
+            document.getElementById('prediction2h').innerHTML = "⏱️ 2h: ---";
+            document.getElementById('prediction4h').innerHTML = "⏱️ 4h: ---";
+            return;
+        }
+        const aircrafts = allTargets.filter(t => t.type === 'plane' || t.type === 'drone');
+        if (aircrafts.length === 0) {
+            document.getElementById('prediction1h').innerHTML = "⏱️ 1h: Aucun aéronef";
+            return;
+        }
+        let pred1h = [], pred2h = [], pred4h = [];
+        for (let a of aircrafts) {
+            const p1 = predictFuturePosition(a, 60);
+            const p2 = predictFuturePosition(a, 120);
+            const p4 = predictFuturePosition(a, 240);
+            if (p1.available) pred1h.push({ callsign: a.callsign, dist: p1.distance });
+            if (p2.available) pred2h.push({ callsign: a.callsign, dist: p2.distance });
+            if (p4.available) pred4h.push({ callsign: a.callsign, dist: p4.distance });
+        }
+        pred1h.sort((a,b) => a.dist - b.dist);
+        pred2h.sort((a,b) => a.dist - b.dist);
+        pred4h.sort((a,b) => a.dist - b.dist);
+        document.getElementById('prediction1h').innerHTML = `⏱️ 1h: ${pred1h.slice(0,3).map(p => `${p.callsign}(${Math.round(p.dist)}km)`).join(', ') || 'Aucune'}`;
+        document.getElementById('prediction2h').innerHTML = `⏱️ 2h: ${pred2h.slice(0,3).map(p => `${p.callsign}(${Math.round(p.dist)}km)`).join(', ') || 'Aucune'}`;
+        document.getElementById('prediction4h').innerHTML = `⏱️ 4h: ${pred4h.slice(0,3).map(p => `${p.callsign}(${Math.round(p.dist)}km)`).join(', ') || 'Aucune'}`;
+        if (pred1h.length > 0) {
+            document.getElementById('assistantSuggestion').innerHTML = `💡 PRÉDICTION: ${pred1h[0].callsign} sera à ${Math.round(pred1h[0].dist)}km dans 1 heure.`;
+        }
+    }
+    
+    function gpsToRadar(lat, lon) {
+        if (myLat === null) return null;
+        const R = 6371;
+        const dLat = (lat - myLat) * Math.PI / 180;
+        const dLon = (lon - myLon) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(myLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        let distKm = R * c;
+        if (distKm > detectionRadiusKm) return null;
+        let bearing = Math.atan2(Math.sin(dLon)*Math.cos(lat*Math.PI/180), Math.cos(myLat*Math.PI/180)*Math.sin(lat*Math.PI/180) - Math.sin(myLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.cos(dLon));
+        bearing = bearing * 180 / Math.PI;
+        if (bearing < 0) bearing += 360;
+        let ratio = distKm / detectionRadiusKm;
+        let x = Math.cos(bearing * Math.PI/180) * ratio * 200;
+        let y = Math.sin(bearing * Math.PI/180) * ratio * 200;
+        return { x, y, distKm, bearing };
+    }
+    
+    function addTarget(callsign, lat, lon, type, alt = 0, speed = 0, heading = 0, icon = '✈️') {
+        if (myLat === null) return false;
+        const pos = gpsToRadar(lat, lon);
+        if (!pos) return false;
+        const newTarget = {
+            id: nextId++, x: pos.x, y: pos.y, callsign, lat, lon,
+            alt, speed, heading, dist: pos.distKm, bearing: pos.bearing, age: 0,
+            type: type, icon: icon
+        };
+        allTargets.push(newTarget);
+        updateCounters(); updateStats(); updateTop5();
+        updateLongTermPredictions();
+        
+        if (map && typeof L !== 'undefined') {
+            let markerIcon = L.divIcon({ html: icon, iconSize: [18,18] });
+            let marker = L.marker([lat, lon], { icon: markerIcon }).addTo(map);
+            let typeName = type === 'plane' ? 'AVION' : (type === 'drone' ? 'DRONE' : (type === 'satellite' ? 'SATELLITE' : 'SÉISME'));
+            marker.bindPopup(`<b>${callsign}</b><br>${typeName}<br>📏 ${Math.round(pos.distKm)} km<br>📐 ${Math.round(pos.bearing)}°<br>📈 Prédiction disponible`);
+            marker.on('click', () => {
+                if (type === 'satellite') selectSatelliteGlobally(newTarget.id, callsign, lat, lon);
+                else selectTarget(newTarget.id);
+            });
+        }
+        return true;
+    }
+    
+    function selectTarget(id) {
+        const target = allTargets.find(t => t.id === id);
+        if (!target) return;
+        selectedTargetId = target.id;
+        addLog(`🎯 CIBLE: ${target.callsign} - ${Math.round(target.dist)}km`, 'warning');
+        const pred1h = predictFuturePosition(target, 60);
+        if (pred1h.available) {
+            document.getElementById('assistantMessage').innerHTML = `📈 ${target.callsign}: sera à ${Math.round(pred1h.distance)}km dans 1h`;
+        }
+    }
+    
+    function selectSatelliteGlobally(satelliteId, satelliteCallsign, satelliteLat, satelliteLon) {
+        selectedSatelliteId = satelliteId;
+        selectedSatelliteCallsign = satelliteCallsign;
+        document.getElementById('assistantMessage').innerHTML = `🛰️ ${satelliteCallsign} sélectionné`;
+        addLog(`🛰️ ${satelliteCallsign} sélectionné`, 'space');
+        if (map && satelliteLat && satelliteLon) {
+            map.setView([satelliteLat, satelliteLon], 8);
+        }
+    }
+    
+    function isDrone(alt, speed, callsign) {
+        const droneKeywords = ["DRONE", "UAV", "DRN", "UAS"];
+        return (alt < 800 && speed < 180) || alt < 200 || droneKeywords.some(kw => callsign.includes(kw));
+    }
+    
+    async function fetchAircrafts() {
+        if (!myLat) return;
+        const bounds = detectionRadiusKm / 111;
+        const url = `https://opensky-network.org/api/states/all?lamin=${myLat-bounds}&lamax=${myLat+bounds}&lomin=${myLon-bounds}&lomax=${myLon+bounds}`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error();
+            const data = await response.json();
+            let planes = 0, drones = 0;
+            for (let state of (data.states || [])) {
+                let callsign = state[1] ? state[1].trim().replace(/ /g, '') : `FL${Math.floor(Math.random()*1000)}`;
+                let lat = state[6], lon = state[5], alt = state[7] || 0, speed = state[9] || 0, heading = state[10] || 0;
+                if (!lat || !lon) continue;
+                let droneDetected = isDrone(alt, speed, callsign);
+                if (addTarget(callsign, lat, lon, droneDetected ? 'drone' : 'plane', alt, speed, heading, droneDetected ? '🛸' : '✈️')) {
+                    if (droneDetected) drones++; else planes++;
+                }
+            }
+            addLog(`✈️ AVIONS: ${planes} | 🛸 DRONES: ${drones} (${detectionRadiusKm}km)`, 'success');
+        } catch(e) { addLog(`⚠️ Avions: API indisponible`, 'error'); }
+        allTargets = allTargets.filter(t => t.age++ < 600);
+        updateCounters(); updateStats(); updateTop5();
+        updateLongTermPredictions();
+    }
+    
+    async function fetchSatellites() {
+        if (!myLat) return;
+        const url = `https://api.n2yo.com/rest/v1/satellite/above/${myLat}/${myLon}/0/${Math.min(detectionRadiusKm, 300)}/15/&apiKey=DEMO_KEY`;
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            let count = 0;
+            if (data.above) {
+                for (let sat of data.above.slice(0, 10)) {
+                    if (addTarget(sat.satname, sat.satlat, sat.satlng, 'satellite', sat.satalt||400, 27000, 0, '🛰️')) count++;
+                }
+                addLog(`🛰️ SATELLITES: ${count} visibles`, 'space');
+            }
+        } catch(e) { addLog(`⚠️ Satellites: ${e.message}`, 'warning'); }
+    }
+    
+    async function fetchEarthquakes() {
+        const url = `https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            let count = 0;
+            for (let eq of data.features) {
+                let mag = eq.properties.mag;
+                let lat = eq.geometry.coordinates[1];
+                let lon = eq.geometry.coordinates[0];
+                let place = eq.properties.place;
+                let dist = myLat ? getDistance(myLat, myLon, lat, lon) : 999;
+                if (dist < 1000) {
+                    if (addTarget(`M${mag}`, lat, lon, 'earthquake', 0, 0, 0, '🌋')) count++;
+                    if (mag > 5) addLog(`🌋 SÉISME: M${mag} à ${Math.round(dist)}km`, 'warning');
+                }
+            }
+            addLog(`🌋 SÉISMES: ${count} détectés`, count > 0 ? 'warning' : 'success');
+        } catch(e) { addLog(`⚠️ Séismes: ${e.message}`, 'error'); }
+    }
+    
+    function getDistance(lat1, lon1, lat2, lon2) {
+        if (!lat1 || !lat2) return 0;
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    
+    async function fetchWeather() {
+        if (!myLat) return;
+        try {
+            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${myLat}&longitude=${myLon}&current_weather=true`);
+            const data = await res.json();
+            const temp = Math.round(data.current_weather.temperature);
+            document.getElementById('weatherIcon').innerHTML = `🌡️ ${temp}°C`;
+        } catch(e) {}
+    }
+    
+    function getMyLocation() {
+        if (!navigator.geolocation) { addLog("❌ GPS non supporté", 'error'); return; }
+        addLog("📍 Acquisition GPS...");
+        navigator.geolocation.getCurrentPosition(
+            pos => {
+                myLat = pos.coords.latitude;
+                myLon = pos.coords.longitude;
+                addLog(`📍 ${myLat.toFixed(4)}, ${myLon.toFixed(4)} - Rayon ${detectionRadiusKm}km`, 'success');
+                if (map) map.setView([myLat, myLon], 7);
+                fetchAllData();
+                speak("Position GPS mise à jour");
+            },
+            err => addLog(`❌ GPS: ${err.message}`, 'error')
+        );
+    }
+    
+    async function fetchAllData() {
+        addLog("🛰️ Scan longue portée...", 'info');
+        await Promise.all([fetchAircrafts(), fetchSatellites(), fetchEarthquakes(), fetchWeather()]);
+        addLog("✅ Scan terminé", 'success');
+        speak(`${allTargets.filter(t=>t.type==='plane' || t.type==='drone').length} aéronefs détectés`);
+    }
+    
+    function updateCounters() {
+        document.getElementById('targetCount').innerText = allTargets.filter(t => t.type === 'plane').length;
+        document.getElementById('droneCount').innerText = allTargets.filter(t => t.type === 'drone').length;
+        document.getElementById('satelliteCount').innerText = allTargets.filter(t => t.type === 'satellite').length;
+        document.getElementById('quakeCount').innerText = allTargets.filter(t => t.type === 'earthquake').length;
+    }
+    
+    function updateStats() {
+        if (allTargets.length === 0) {
+            document.getElementById('threatValue').innerHTML = '0';
+            document.getElementById('threatFill').style.width = '0%';
+            return;
+        }
+        const closest = allTargets.filter(t => t.type !== 'earthquake').sort((a,b) => a.dist - b.dist)[0];
+        if (closest) {
+            const threat = Math.min(100, Math.floor((detectionRadiusKm - closest.dist) / detectionRadiusKm * 100));
+            document.getElementById('threatValue').innerHTML = threat;
+            document.getElementById('threatFill').style.width = threat + '%';
+            document.getElementById('scanStatus').innerHTML = threat > 60 ? '🔴 ALERTE' : (threat > 30 ? '🟡 SURVEILLANCE' : '🟢 ACTIF');
+        }
+        if (statsChart) {
+            const distData = allTargets.slice(0, 10).map(t => t.dist);
+            statsChart.data.datasets[0].data = distData;
+            statsChart.update();
+        }
+    }
+    
+    function updateTop5() {
+        const sorted = [...allTargets].filter(t => t.type !== 'earthquake').sort((a,b) => a.dist - b.dist).slice(0,5);
+        const container = document.getElementById('top5Container');
+        container.innerHTML = '';
+        for (let t of sorted) {
+            const div = document.createElement('div');
+            div.className = 'top-item';
+            let emoji = t.type === 'plane' ? '✈️' : (t.type === 'drone' ? '🛸' : '🛰️');
+            div.innerHTML = `<span>${emoji} ${t.callsign.substring(0,12)}</span><span>${Math.round(t.dist)} km</span><span>${Math.round(t.bearing)}°</span>`;
+            div.onclick = () => {
+                if (t.type === 'satellite') selectSatelliteGlobally(t.id, t.callsign, t.lat, t.lon);
+                else selectTarget(t.id);
+            };
+            container.appendChild(div);
+        }
+    }
+    
+    function askAssistant() {
+        const input = document.getElementById('assistantInput');
+        const question = input.value.trim();
+        if (!question) return;
+        addLog(`💬 Vous: ${question}`, 'info');
+        const q = question.toLowerCase();
+        let response = "";
+        if (q.includes('portée')) response = `Radar couvre ${detectionRadiusKm}km.`;
+        else if (q.includes('prédiction')) response = `Prédictions disponibles à 1h, 2h et 4h.`;
+        else if (q.includes('satellite')) response = `${allTargets.filter(t=>t.type==='satellite').length} satellites visibles.`;
+        else if (q.includes('menace')) response = `Niveau de menace: ${document.getElementById('threatValue').innerText}%.`;
+        else response = "Je suis votre assistante. Posez-moi des questions sur la portée, les prédictions ou les menaces.";
+        addLog(`🤖 Assistant: ${response}`, 'ai');
+        document.getElementById('assistantMessage').innerHTML = `✨ ${response.substring(0, 120)}`;
+        speak(response.substring(0, 100));
+        input.value = '';
+    }
+    
+    function captureRadar() {
+        const canvas = document.getElementById('radarCanvas');
+        const link = document.createElement('a');
+        link.download = `nexus_radar_${Date.now()}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        addLog("📸 Capture d'écran", 'success');
+    }
+    
+    async function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(12);
+        doc.text("NEXUS REAL - RAPPORT", 20, 20);
+        doc.setFontSize(8);
+        doc.text(`Date: ${new Date().toLocaleString()}`, 20, 35);
+        doc.text(`Position: ${myLat ? myLat.toFixed(4) + ', ' + myLon.toFixed(4) : 'Non définie'}`, 20, 45);
+        doc.text(`Rayon: ${detectionRadiusKm} km`, 20, 55);
+        doc.text(`Avions: ${allTargets.filter(t=>t.type==='plane').length} | Drones: ${allTargets.filter(t=>t.type==='drone').length} | Satellites: ${allTargets.filter(t=>t.type==='satellite').length} | Séismes: ${allTargets.filter(t=>t.type==='earthquake').length}`, 20, 65);
+        doc.save(`nexus_report_${Date.now()}.pdf`);
+        addLog("📄 PDF généré", 'success');
+    }
+    
+    function exportCSV() {
+        if (allTargets.length === 0) return;
+        let csv = [["Callsign","Type","Distance(km)","Bearing(°)"]];
+        allTargets.forEach(t => csv.push([t.callsign, t.type, t.dist.toFixed(1), t.bearing.toFixed(0)]));
+        const blob = new Blob([csv.map(r => r.join(",")).join("\n")], { type: "text/csv" });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `nexus_export_${Date.now()}.csv`;
+        a.click();
+        addLog("📎 Export CSV", 'success');
+    }
+    
+    function clearAll() { allTargets = []; selectedSatelliteId = null; updateCounters(); updateStats(); updateTop5(); updateLongTermPredictions(); addLog("🗑️ Données effacées"); }
+    function shareLocation() { if(myLat){ navigator.clipboard.writeText(`${myLat},${myLon}`); addLog("📋 Position copiée"); } else getMyLocation(); }
+    function startAutoScan() { if(autoInterval) clearInterval(autoInterval); autoInterval = setInterval(fetchAllData, 45000); addLog("🤖 Scan auto (45s)", 'success'); speak("Scan auto activé"); }
+    function toggleTheme() { document.body.classList.toggle('light'); addLog("🌓 Thème changé", 'success'); }
+    function startVoice() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if(!SpeechRecognition){ addLog("❌ Voix non supportée"); return; }
+        let recog = new SpeechRecognition(); recog.lang = 'fr-FR';
+        recog.onstart = () => addLog("🎤 Micro activé", 'success');
+        recog.onresult = (e) => {
+            let cmd = e.results[0][0].transcript.toLowerCase();
+            addLog(`🎤 "${cmd}"`, 'success');
+            if(cmd.includes('scan')) fetchAllData();
+            else if(cmd.includes('gps')) getMyLocation();
+            else if(cmd.includes('capture')) captureRadar();
+            else speak("Commandes: Scan, GPS, Capture");
+        };
+        recog.start();
+    }
+    
+    let radarAngle = 0;
+    const radarCanvas = document.getElementById('radarCanvas');
+    const ctx = radarCanvas.getContext('2d');
+    
+    function drawRadar() {
+        const size = Math.min(radarCanvas.clientWidth, radarCanvas.clientHeight);
+        if (size !== radarCanvas.width) { radarCanvas.width = size; radarCanvas.height = size; }
+        const cx = size/2, cy = size/2, maxR = size/2 - 10;
+        ctx.clearRect(0, 0, size, size);
+        ctx.fillStyle = '#001a2a'; ctx.fillRect(0,0,size,size);
+        for (let i=1;i<=5;i++) {
+            const r = (maxR/5)*i;
+            ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+            ctx.strokeStyle = `rgba(0,242,255,0.25)`;
+            ctx.setLineDash([2,4]); ctx.stroke();
+            ctx.fillStyle = `rgba(0,242,255,0.6)`;
+            ctx.font = '5px monospace';
+            ctx.fillText(`${Math.round(i*detectionRadiusKm/5)}km`, cx+r-10, cy-2);
+        }
+        ctx.setLineDash([]);
+        for (let i=0;i<12;i++) {
+            const a = i*Math.PI*2/12;
+            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*maxR, cy+Math.sin(a)*maxR);
+            ctx.strokeStyle = `rgba(0,242,255,0.15)`; ctx.stroke();
+        }
+        ctx.fillStyle = '#00f2ffcc'; ctx.font = 'bold 7px monospace';
+        ctx.fillText('N', cx-2, cy-maxR+5); ctx.fillText('S', cx-2, cy+maxR-2);
+        ctx.fillText('W', cx-maxR+2, cy+2); ctx.fillText('E', cx+maxR-6, cy+2);
+        if (myLat !== null) {
+            radarAngle += 0.04;
+            ctx.save(); ctx.shadowBlur = 6; ctx.shadowColor = '#0ff';
+            const bx = cx+Math.cos(radarAngle)*maxR, by = cy+Math.sin(radarAngle)*maxR;
+            ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(bx,by);
+            ctx.strokeStyle = `rgba(0,242,255,0.9)`; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+        }
+        for (const t of allTargets) {
+            const x = cx + (t.x/200)*maxR, y = cy + (t.y/200)*maxR;
+            if (x<0||x>size||y<0||y>size) continue;
+            const isSelected = (selectedTargetId === t.id) || (selectedSatelliteId === t.id);
+            let color = t.type === 'satellite' ? '#aa88ff' : (t.type === 'earthquake' ? '#ff8844' : (t.type === 'drone' ? '#88aaff' : '#88ccff'));
+            if (isSelected) color = '#ff88ff';
+            ctx.beginPath(); ctx.arc(x, y, isSelected ? 7 : 5, 0, Math.PI*2);
+            ctx.fillStyle = `${color}44`; ctx.fill();
+            ctx.beginPath(); ctx.arc(x, y, isSelected ? 4 : 3, 0, Math.PI*2);
+            ctx.fillStyle = color; ctx.fill(); ctx.stroke();
+            ctx.fillStyle = 'white'; ctx.font = 'bold 8px monospace';
+            ctx.fillText(t.icon, x-3, y-3);
+            if (isSelected) {
+                ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI*2);
+                ctx.strokeStyle = '#ff88ff'; ctx.setLineDash([3,5]); ctx.stroke(); ctx.setLineDash([]);
+            }
+        }
+        if (myLat !== null) {
+            ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2); ctx.fillStyle = '#0ff'; ctx.shadowBlur = 8; ctx.fill(); ctx.shadowBlur = 0;
+        } else {
+            ctx.fillStyle = '#ffaa44'; ctx.font = 'bold 8px monospace'; ctx.fillText('GPS OFF', cx-15, cy+3);
+        }
+        requestAnimationFrame(drawRadar);
+    }
+    
+    radarCanvas.addEventListener('click', (e) => {
+        if (allTargets.length === 0) return;
+        const rect = radarCanvas.getBoundingClientRect();
+        const size = radarCanvas.width;
+        const cx = size/2, cy = size/2, maxR = size/2 - 10;
+        const clickX = (e.clientX - rect.left) / rect.width * size;
+        const clickY = (e.clientY - rect.top) / rect.height * size;
+        let minDist = 15, closest = null;
+        for (const t of allTargets) {
+            const x = cx + (t.x/200)*maxR, y = cy + (t.y/200)*maxR;
+            const d = Math.hypot(clickX - x, clickY - y);
+            if (d < minDist) { minDist = d; closest = t; }
+        }
+        if (closest) {
+            if (closest.type === 'satellite') selectSatelliteGlobally(closest.id, closest.callsign, closest.lat, closest.lon);
+            else selectTarget(closest.id);
+        }
+    });
+    
+    function initMap() {
+        if (typeof L !== 'undefined') {
+            map = L.map('map').setView([48.8566, 2.3522], 5);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: 'OSM & CartoDB', subdomains: 'abcd', maxZoom: 19
+            }).addTo(map);
+        }
+    }
+    
+    function initChart() {
+        const ctxChart = document.getElementById('statsChart').getContext('2d');
+        statsChart = new Chart(ctxChart, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Distance (km)', data: [], borderColor: '#00f2ff', backgroundColor: 'rgba(0,242,255,0.05)', tension: 0.3, fill: true, pointRadius: 2 }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 500 } } }
+        });
+    }
+    
+    function updateClock() {
+        document.getElementById('timeDisplay').innerHTML = new Date().toLocaleTimeString('fr-FR');
+        setTimeout(updateClock, 1000);
+    }
+    
+    function init() {
+        drawRadar(); initMap(); initChart(); updateClock();
+        
+        document.getElementById('gpsBtn').onclick = getMyLocation;
+        document.getElementById('scanBtn').onclick = fetchAllData;
+        document.getElementById('autoBtn').onclick = startAutoScan;
+        document.getElementById('captureBtn').onclick = captureRadar;
+        document.getElementById('reportBtn').onclick = generatePDF;
+        document.getElementById('exportBtn').onclick = exportCSV;
+        document.getElementById('voiceBtn').onclick = startVoice;
+        document.getElementById('clearBtn').onclick = clearAll;
+        document.getElementById('shareBtn').onclick = shareLocation;
+        document.getElementById('themeBtn').onclick = toggleTheme;
+        document.getElementById('askAssistantBtn').onclick = askAssistant;
+        document.getElementById('assistantInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') askAssistant(); });
+        
+        document.querySelectorAll('.range-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                detectionRadiusKm = parseInt(btn.dataset.range);
+                document.getElementById('rangeRadius').value = detectionRadiusKm;
+                document.getElementById('radiusValue').innerHTML = detectionRadiusKm + ' km';
+                if (myLat) fetchAllData();
+                addLog(`📡 Portée étendue à ${detectionRadiusKm}km`, 'success');
+            };
+        });
+        
+        document.getElementById('rangeRadius').oninput = (e) => {
+            detectionRadiusKm = parseInt(e.target.value);
+            document.getElementById('radiusValue').innerHTML = detectionRadiusKm + ' km';
+            if (myLat) fetchAllData();
+        };
+        
+        document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('nexus_current_user'); window.location.href = 'login.html'; };
+        
+        const user = localStorage.getItem('nexus_current_user');
+        if (user) document.getElementById('userNameDisplay').innerHTML = `👤 ${user.split('@')[0]}`;
+        
+        addLog("🚀 NEXUS REAL – Longue portée (500km max)", 'success');
+        addLog("📈 Prédictions à 1h, 2h, 4h activées", 'ai');
+        
+        setTimeout(() => { getMyLocation(); startAutoScan(); }, 1000);
+    }
+    
+    init();
+})();
+</script>
+</body>
+</html>
