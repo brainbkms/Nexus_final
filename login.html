@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>NEXUS PRO - ACCÈS SÉCURISÉ</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary: #00f2ff;
+            --primary-glow: rgba(0, 242, 255, 0.5);
+            --success: #00ff88;
+            --danger: #ff3366;
+            --dark: #0a0a1a;
+            --card-glass: rgba(8, 18, 28, 0.85);
+            --border-glow: rgba(0, 242, 255, 0.3);
+        }
+        body {
+            font-family: 'Space Grotesk', monospace;
+            background: radial-gradient(ellipse at 20% 30%, var(--dark), #050510);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .auth-container {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px;
+            animation: fadeInUp 0.6s ease;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .auth-card {
+            background: var(--card-glass);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 2rem;
+            border: 1px solid var(--border-glow);
+            box-shadow: 0 0 50px var(--primary-glow);
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 1.8rem;
+        }
+        .logo-icon { font-size: 3rem; background: linear-gradient(135deg, #0ff, #f0f, #ff0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .logo-title { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #0ff, #f0f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .logo-sub { font-size: 0.65rem; color: #88ccff; margin-top: 5px; letter-spacing: 2px; }
+        .status-led {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+            animation: blink 1.5s infinite;
+            margin-right: 6px;
+        }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .input-group { margin-bottom: 1rem; position: relative; }
+        .input-group input {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-glow);
+            border-radius: 50px;
+            color: #0ff;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+        .input-group label {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #88ccff;
+            font-size: 0.7rem;
+            pointer-events: none;
+            transition: 0.3s;
+            opacity: 0.7;
+        }
+        .input-group input:focus + label,
+        .input-group input:not(:placeholder-shown) + label {
+            top: 0;
+            transform: translateY(-50%);
+            font-size: 0.55rem;
+            opacity: 1;
+            color: var(--primary);
+        }
+        .input-group input::placeholder { color: transparent; }
+        .auth-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(0,242,255,0.2), rgba(112,0,255,0.2));
+            border: 1px solid var(--primary);
+            border-radius: 50px;
+            color: var(--primary);
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-top: 0.5rem;
+        }
+        .auth-btn:hover {
+            background: rgba(0,242,255,0.3);
+            box-shadow: 0 0 20px var(--primary-glow);
+            transform: scale(1.02);
+        }
+        .switch-btn { background: transparent; border-color: rgba(0,242,255,0.5); margin-top: 1rem; }
+        .divider { display: flex; align-items: center; margin: 1.2rem 0; color: #334455; font-size: 0.65rem; }
+        .divider-line { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--primary), transparent); }
+        .divider-text { padding: 0 10px; }
+        .error-msg, .success-msg { font-size: 0.65rem; margin-top: 8px; text-align: center; }
+        .error-msg { color: var(--danger); }
+        .success-msg { color: var(--success); }
+        .auth-footer { text-align: center; margin-top: 1.5rem; font-size: 0.55rem; color: #6688aa; }
+        .password-strength { display: flex; gap: 5px; margin-top: 5px; }
+        .strength-bar { flex: 1; height: 3px; background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .strength-bar.weak { background: #ff3366; }
+        .strength-bar.medium { background: #ffaa44; }
+        .strength-bar.strong { background: #00ff88; }
+    </style>
+</head>
+<body>
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="logo">
+            <div class="logo-icon">🛰️</div>
+            <div class="logo-title">NEXUS PRO</div>
+            <div class="logo-sub"><span class="status-led"></span> CONNEXION SÉCURISÉE</div>
+        </div>
+        
+        <div id="loginForm">
+            <div class="input-group">
+                <input type="email" id="loginEmail" placeholder=" ">
+                <label>📧 EMAIL</label>
+            </div>
+            <div class="input-group">
+                <input type="password" id="loginPassword" placeholder=" ">
+                <label>🔒 MOT DE PASSE</label>
+            </div>
+            <button id="loginBtn" class="auth-btn">🔐 SE CONNECTER</button>
+            <div class="divider"><div class="divider-line"></div><div class="divider-text">OU</div><div class="divider-line"></div></div>
+            <button id="showRegisterBtn" class="auth-btn switch-btn">📝 CRÉER UN COMPTE</button>
+            <div id="loginError" class="error-msg"></div>
+        </div>
+        
+        <div id="registerForm" style="display: none;">
+            <div class="input-group">
+                <input type="email" id="registerEmail" placeholder=" ">
+                <label>📧 EMAIL</label>
+            </div>
+            <div class="input-group">
+                <input type="password" id="registerPassword" placeholder=" ">
+                <label>🔒 MOT DE PASSE (min 6)</label>
+            </div>
+            <div class="password-strength" id="passwordStrength">
+                <div class="strength-bar"></div>
+                <div class="strength-bar"></div>
+                <div class="strength-bar"></div>
+            </div>
+            <div class="input-group">
+                <input type="password" id="registerConfirm" placeholder=" ">
+                <label>✅ CONFIRMER</label>
+            </div>
+            <button id="registerBtn" class="auth-btn">📝 CRÉER LE COMPTE</button>
+            <button id="showLoginBtn" class="auth-btn switch-btn">🔐 DÉJÀ UN COMPTE ?</button>
+            <div id="registerError" class="error-msg"></div>
+            <div id="registerSuccess" class="success-msg"></div>
+        </div>
+        
+        <div class="auth-footer">
+            <span>🔒 CONNEXION SÉCURISÉE FIREBASE</span> • <span>🛰️ DONNÉES RÉELLES</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ========== CONFIGURATION FIREBASE ==========
+    const firebaseConfig = {
+        apiKey: "AIzaSyCXmE1gThz6zpmEOu9wsG6-RUuW6jtvEfY",
+        authDomain: "nexus-v-6e796.firebaseapp.com",
+        projectId: "nexus-v-6e796",
+        storageBucket: "nexus-v-6e796.firebasestorage.app",
+        messagingSenderId: "217749187595",
+        appId: "1:217749187595:web:d91304a237e131585f6b0e",
+        measurementId: "G-TT211TSG30"
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    
+    function checkPasswordStrength(password) {
+        let strength = 0;
+        if (password.length >= 6) strength++;
+        if (password.length >= 10) strength++;
+        if (/[A-Z]/.test(password) && /[0-9]/.test(password)) strength++;
+        const bars = document.querySelectorAll('#passwordStrength .strength-bar');
+        for (let i = 0; i < bars.length; i++) {
+            bars[i].className = 'strength-bar';
+            if (i < strength && strength > 0) {
+                if (strength === 1) bars[i].classList.add('weak');
+                else if (strength === 2) bars[i].classList.add('medium');
+                else if (strength >= 3) bars[i].classList.add('strong');
+            }
+        }
+        return strength;
+    }
+    
+    async function login(email, password) {
+        try {
+            const userCredential = await auth.signInWithEmailAndPassword(email, password);
+            localStorage.setItem('nexus_current_user', userCredential.user.email);
+            return { success: true, message: "🔓 Connexion réussie !" };
+        } catch (error) {
+            let message = "❌ Identifiants incorrects";
+            if (error.code === 'auth/user-not-found') message = "❌ Aucun compte avec cet email";
+            if (error.code === 'auth/wrong-password') message = "❌ Mot de passe incorrect";
+            if (error.code === 'auth/invalid-email') message = "❌ Email invalide";
+            if (error.code === 'auth/too-many-requests') message = "❌ Trop de tentatives, réessayez plus tard";
+            return { success: false, message: message };
+        }
+    }
+    
+    async function register(email, password, confirm) {
+        if (!email || !email.includes('@')) return { success: false, message: "❌ Email valide requis" };
+        if (!password || password.length < 6) return { success: false, message: "❌ Mot de passe (min 6 caractères)" };
+        if (password !== confirm) return { success: false, message: "❌ Les mots de passe ne correspondent pas" };
+        
+        try {
+            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            return { success: true, message: "✅ Compte créé ! Connectez-vous." };
+        } catch (error) {
+            let message = "❌ Erreur lors de la création";
+            if (error.code === 'auth/email-already-in-use') message = "❌ Cet email est déjà utilisé";
+            if (error.code === 'auth/invalid-email') message = "❌ Email invalide";
+            if (error.code === 'auth/weak-password') message = "❌ Mot de passe trop faible";
+            return { success: false, message: message };
+        }
+    }
+    
+    function checkCurrentUser() {
+        const user = localStorage.getItem('nexus_current_user');
+        if (user) {
+            window.location.href = 'index.html';
+        }
+    }
+    
+    function initEvents() {
+        document.getElementById('loginBtn').onclick = async () => {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const result = await login(email, password);
+            if (result.success) {
+                document.getElementById('loginError').innerHTML = '<span style="color:#00ff88;">🔓 Connexion réussie, redirection...</span>';
+                setTimeout(() => { window.location.href = 'index.html'; }, 1000);
+            } else {
+                document.getElementById('loginError').innerHTML = result.message;
+                document.getElementById('loginPassword').value = '';
+            }
+        };
+        
+        document.getElementById('showRegisterBtn').onclick = () => {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+            document.getElementById('loginError').innerHTML = '';
+        };
+        
+        document.getElementById('showLoginBtn').onclick = () => {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('registerError').innerHTML = '';
+            document.getElementById('registerSuccess').innerHTML = '';
+        };
+        
+        document.getElementById('registerPassword').oninput = (e) => {
+            checkPasswordStrength(e.target.value);
+        };
+        
+        document.getElementById('registerBtn').onclick = async () => {
+            const email = document.getElementById('registerEmail').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const confirm = document.getElementById('registerConfirm').value;
+            const result = await register(email, password, confirm);
+            if (result.success) {
+                document.getElementById('registerSuccess').innerHTML = result.message;
+                document.getElementById('registerError').innerHTML = '';
+                setTimeout(() => { document.getElementById('showLoginBtn').click(); }, 2000);
+            } else {
+                document.getElementById('registerError').innerHTML = result.message;
+                document.getElementById('registerSuccess').innerHTML = '';
+            }
+        };
+        
+        document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('loginBtn').click();
+        });
+        document.getElementById('registerConfirm').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') document.getElementById('registerBtn').click();
+        });
+    }
+    
+    checkCurrentUser();
+    initEvents();
+    
+    console.log("%c🚀 NEXUS PRO - Authentification Firebase", "color: #00f2ff; font-size: 14px; font-weight: bold;");
+    console.log("%c🔐 Comptes en ligne avec Firebase Auth", "color: #00ff88; font-size: 12px;");
+</script>
+</body>
+</html>
