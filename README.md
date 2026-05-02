@@ -6,18 +6,8 @@
   <p>100% données réelles • 0% simulation</p>
 </div>
 
----
-
-## 🚀 À propos
-
-**NEXUS REAL** est une station de surveillance mondiale ultramoderne qui agrège des données en temps réel provenant de multiples sources officielles :
-
-- ✈️ **Avions** - OpenSky Network (ADS-B)
-- 🛸 **Drones** - Détection automatique par altitude/vitesse
-- 🛰️ **Satellites** - N2YO API
-- 🚢 **Navires** - Trafic maritime (AIS)
-- 🔥 **Feux de forêt** - Surveillance environnementale
-- 🌡️ **Météo & Qualité air** - Open-Meteo API
+## 🚀 Accès
+👉 [**https://brainbkms.github.io/Nexus_final/**](https://brainbkms.github.io/Nexus_final/)
 
 ## ✨ Fonctionnalités
 
@@ -29,37 +19,22 @@
 | 🤖 **Assistant vocal** | Commandes vocales et IA intégrée |
 | 📱 **Application mobile** | Installation PWA possible |
 | 🌓 **Thème clair/sombre** | Interface adaptable |
-| 📊 **Export données** | CSV et PDF |
-| 📸 **Capture d'écran** | Sauvegarde du radar |
 
 ## 🎯 Sources de données 100% réelles
 
-| Source | Données | API |
-|--------|---------|-----|
-| [OpenSky Network](https://opensky-network.org) | Avions / Drones | ADS-B |
-| [N2YO](https://www.n2yo.com) | Satellites | Space API |
-| [USGS](https://earthquake.usgs.gov) | Séismes | Earthquake API |
-| [Open-Meteo](https://open-meteo.com) | Météo / Qualité air | Weather API |
+| Source | Données |
+|--------|---------|
+| [OpenSky Network](https://opensky-network.org) | Avions / Drones |
+| [N2YO](https://www.n2yo.com) | Satellites |
+| [USGS](https://earthquake.usgs.gov) | Séismes |
+| [Open-Meteo](https://open-meteo.com) | Météo / Qualité air |
 
-## 🚀 Démo en ligne
+## 🔐 Authentification
 
-👉 [**https://brainbkms.github.io/Nexus_final/**](https://brainbkms.github.io/Nexus_final/)
+**Compte de test** :
+- Email : `test@nexus.com`
+- Mot de passe : `test123`
 
-## 📱 Installation
+## 📄 Licence
 
-### Option 1 : En ligne
-1. Ouvre le lien ci-dessus dans **Chrome**
-2. Autorise la géolocalisation
-3. Crée un compte ou connecte-toi avec `admin` / `admin123`
-
-### Option 2 : Application mobile
-1. Ouvre le lien dans **Chrome**
-2. Menu (3 points) → **"Installer l'application"**
-3. L'icône apparaît sur ton écran d'accueil
-
-### Option 3 : Installation locale
-```bash
-git clone https://github.com/brainbkms/Nexus_final.git
-cd Nexus_final
-python -m http.server 8000
-# Ouvre http://localhost:8000
+MIT License - © 2024 Ibrahim
